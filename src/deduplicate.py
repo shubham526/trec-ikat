@@ -1,32 +1,51 @@
-from tqdm import tqdm
-import json
+# from tqdm import tqdm
 import argparse
 import sys
 import os
 import gzip
 
 
+def analyze_directory(directory, duplicates, seen):
+    data_files = sorted(os.listdir(directory))
+    for file_name in data_files:
+        if os.path.splitext(file_name)[1] == '.gz':
+            data_file_name = os.path.join(directory, file_name)
+            analyze_single_file(file=data_file_name, duplicates=duplicates, seen=seen)
+            print('Analyzed: {}'.format(data_file_name))
+
+
 def deduplicate(data_dir, save):
-    data_files = os.listdir(data_dir)
+    directories = sorted(os.listdir(data_dir))
     duplicates = set()
     seen = set()
 
-    for file_name in data_files:
-        if os.path.splitext(file_name)[1] == '.gz':
-            data_file_name = os.path.join(data_dir, file_name)
-            analyze_single_file(file=data_file_name, duplicates=duplicates, seen=seen)
-            print('Analyzed: {}'.format(data_file_name))
-    print('Saving....')
-    write_to_file(seen, save)
-    print('File saved to ==> {}'.format(save))
+    for directory in directories:
+        analyze_directory(directory=os.path.join(data_dir, directory), duplicates=duplicates, seen=seen)
+        # data_files = sorted(os.listdir(os.path.join(data_dir, directory)))
+        # for file_name in data_files:
+        #     if os.path.splitext(file_name)[1] == '.gz':
+        #         data_file_name = os.path.join(data_dir, directory, file_name)
+        #         analyze_single_file(file=data_file_name, duplicates=duplicates, seen=seen)
+        #         print('Analyzed: {}'.format(data_file_name))
+
+    print('Saving deduplicated data...')
+    save_file = save + '/cluweb22.dedup.jsonl'
+    write_to_file(seen, save_file)
+    print('Data saved to ==> {}'.format(save_file))
+
+    print('Saving duplicates...')
+    save_file = save + '/duplicates.jsonl'
+    write_to_file(duplicates, save_file)
+    print('Data saved to ==> {}'.format(save_file))
 
 
 def analyze_single_file(file, duplicates, seen):
     with gzip.open(file, 'rt', encoding='UTF-8') as f:
-        for line in tqdm(f):
+        for line in f:
             if line not in seen:
                 seen.add(line)
             else:
+                print('Duplicate found.')
                 duplicates.add(line)
 
 
