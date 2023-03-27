@@ -17,7 +17,7 @@ class SpacyPassageChunker:
             self.model = spacy.load(model,
                                     exclude=["parser", "tagger", "ner", "attribute_ruler", "lemmatizer", "tok2vec"])
         self.model.enable_pipe("senter")
-        self.model.max_length = 1500000  # for documents that are longer than the spacy character limit
+        self.model.max_length = 1500000000  # for documents that are longer than the spacy character limit
 
     @staticmethod
     def download_spacy_model(model="en_core_web_sm"):
