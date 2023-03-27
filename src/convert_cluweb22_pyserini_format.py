@@ -1,4 +1,3 @@
-from tqdm import tqdm
 import json
 import argparse
 import sys
@@ -59,7 +58,7 @@ def create_trecweb_entry(idx: str, url: str, title: str, body: str) -> str:
 
 def convert_single_file(file, data, passage_chunker):
     with gzip.open(file, 'rt', encoding='UTF-8') as f:
-        for line in tqdm(f):
+        for line in f:
             d = json.loads(line)
             doc_text = d['Clean-Text'].replace('\r', ' ').replace('\n', ' ')
             passage_chunker.tokenize_document(doc_text)
