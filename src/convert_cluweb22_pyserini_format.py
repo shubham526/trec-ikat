@@ -81,7 +81,7 @@ def write_to_file(data, save):
 
 
 def main():
-    parser = argparse.ArgumentParser("Convert ClueWeb22 data to Pyserini data format.")
+    parser = argparse.ArgumentParser("Convert ClueWeb22 data to TrecWeb data format.")
     parser.add_argument("--data", help='Directory containing documents.', required=True)
     parser.add_argument("--max-len", help='Maximum size of passage.', default=250, type=int)
     parser.add_argument("--save", help='Directory where to save.', required=True)

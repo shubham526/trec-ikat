@@ -21,12 +21,6 @@ def deduplicate(data_dir, save):
 
     for directory in directories:
         analyze_directory(directory=os.path.join(data_dir, directory), duplicates=duplicates, seen=seen)
-        # data_files = sorted(os.listdir(os.path.join(data_dir, directory)))
-        # for file_name in data_files:
-        #     if os.path.splitext(file_name)[1] == '.gz':
-        #         data_file_name = os.path.join(data_dir, directory, file_name)
-        #         analyze_single_file(file=data_file_name, duplicates=duplicates, seen=seen)
-        #         print('Analyzed: {}'.format(data_file_name))
 
     print('Saving deduplicated data...')
     save_file = save + '/cluweb22.dedup.jsonl'
