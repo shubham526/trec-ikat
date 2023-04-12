@@ -6,8 +6,23 @@ import sys
 from multiprocessing import Process, Manager
 from spacy_passage_chunker import SpacyPassageChunker
 
+meta_data = {
+    'clueweb': {
+        'idx': 'ClueWeb22-ID',
+        'body': 'Clean-Text',
+        'url': 'URL',
+        'title': 'URL-hash'
+    },
+    'marco': {
+        'idx': 'docid',
+        'body': 'body',
+        'url': 'url',
+        'title': 'title'
+    }
+}
 
-def convert(data_dir, save_dir, num_processes, max_len):
+
+def convert(collection_name, data_dir, save_dir, num_processes, max_len, stride):
     data_files = sorted(os.listdir(data_dir))
     file_queue = Manager().Queue()
     save_queue = Manager().Queue()
@@ -20,7 +35,7 @@ def convert(data_dir, save_dir, num_processes, max_len):
 
     workers = []
     for i in range(num_processes):
-        p = Process(target=worker, args=(file_queue, save_queue, max_len))
+        p = Process(target=worker, args=(file_queue, save_queue, max_len, stride, collection_name))
         p.start()
         workers.append(p)
 
@@ -33,8 +48,8 @@ def convert(data_dir, save_dir, num_processes, max_len):
         print('File saved to ==> {}'.format(data['save_path']))
 
 
-def worker(file_queue, save_queue, max_len):
-    passage_chunker = SpacyPassageChunker(max_len)
+def worker(file_queue, save_queue, max_len, stride, collection_name):
+    passage_chunker = SpacyPassageChunker(max_len, stride)
 
     while not file_queue.empty():
         file_path, save_path = file_queue.get()
@@ -42,14 +57,22 @@ def worker(file_queue, save_queue, max_len):
         with gzip.open(file_path, 'rt', encoding='UTF-8') as f:
             for line in f:
                 d = json.loads(line)
-                doc_text = d['Clean-Text'].replace('\r', ' ').replace('\n', ' ')
+                doc_text = d[meta_data[collection_name]['body']].replace('\r', ' ').replace('\n', ' ')
+                # doc_text = d['Clean-Text'].replace('\r', ' ').replace('\n', ' ')
+                # doc_text = d['body'].replace('\r', ' ').replace('\n', ' ')
                 passage_chunker.tokenize_document(doc_text)
                 passages = passage_chunker.chunk_document()
                 passage_splits = add_passage_ids(passages)
+                # trecweb_entry = create_trecweb_entry(
+                #     idx=d['ClueWeb22-ID'],
+                #     url=d['URL'],
+                #     title=d['URL-hash'],
+                #     body=passage_splits
+                # )
                 trecweb_entry = create_trecweb_entry(
-                    idx=d['ClueWeb22-ID'],
-                    url=d['URL'],
-                    title=d['URL-hash'],
+                    idx=d[meta_data[collection_name]['idx']],
+                    url=d[meta_data[collection_name]['url']],
+                    title=d[meta_data[collection_name]['title']],
                     body=passage_splits
                 )
                 data.append(trecweb_entry)
@@ -61,9 +84,9 @@ def worker(file_queue, save_queue, max_len):
 def add_passage_ids(passages) -> str:
     passage_splits = []
 
-    for passage in passages:
-        passage_splits.append('<PASSAGE id={}>'.format(passage["id"]))
-        passage_splits.append(passage["body"])
+    for idx, passage in enumerate(passages):
+        passage_splits.append('<PASSAGE id={}>'.format(idx))
+        passage_splits.append(passage)
         passage_splits.append('</PASSAGE>')
 
     return '\n'.join(passage_splits)
@@ -92,15 +115,21 @@ def save_file(data, save_path):
 
 def main():
     parser = argparse.ArgumentParser("Convert ClueWeb22 data to TrecWeb data format.")
+    parser.add_argument("--collection", help='Name of collection (clueweb|marco).', required=True)
     parser.add_argument("--data", help='Directory containing documents.', required=True)
     parser.add_argument("--save-dir", help='Directory to save TrecWeb files.', required=True)
-    parser.add_argument("--num-process", help='Number of processes to use for conversion.', type=int, default=4)
-    parser.add_argument("--max-len", help='Maximum length of a passage.', type=int, default=250)
+    parser.add_argument("--num-workers", help='Number of workers to use for conversion. Default=4', type=int, default=4)
+    parser.add_argument('--max-len', default=10, help='Maximum sentence length per passage. Default=10')
+    parser.add_argument('--stride', default=5,
+                        help='Distance between each beginning sentence of passage in a document. Default=5')
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
 
-    print('Using {} processes'.format(args.num_process))
+    print('Corpus: {}'.format(args.collection))
+    print('Number of workers = {}'.format(args.num_workers))
+    print('UMaximum sentence length per passage = {}'.format(args.max_len))
+    print('Distance between each beginning sentence of passage in a document = {}'.format(args.stride))
 
-    convert(args.data, args.save_dir, args.num_process, args.max_len)
+    convert(args.collection, args.data, args.save_dir, args.num_workers, args.max_len, args.stride)
 
 
 if __name__ == '__main__':
