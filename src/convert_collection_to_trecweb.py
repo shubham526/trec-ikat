@@ -5,13 +5,14 @@ import gzip
 import sys
 from multiprocessing import Process, Manager
 from spacy_passage_chunker import SpacyPassageChunker
+import requests
+from bs4 import BeautifulSoup
 
 meta_data = {
     'clueweb': {
         'idx': 'ClueWeb22-ID',
         'body': 'Clean-Text',
         'url': 'URL',
-        'title': 'URL-hash'
     },
     'marco': {
         'idx': 'docid',
@@ -20,6 +21,17 @@ meta_data = {
         'title': 'title'
     }
 }
+
+
+def get_page_name(url):
+    # making requests instance
+    reqs = requests.get(url)
+
+    # using the BeautifulSoup module
+    soup = BeautifulSoup(reqs.text, 'html.parser')
+
+    # displaying the title
+    return ' '.join([title for title in soup.find_all('title')])
 
 
 def convert(collection_name, data_dir, save_dir, num_processes, max_len, stride):
@@ -58,21 +70,17 @@ def worker(file_queue, save_queue, max_len, stride, collection_name):
             for line in f:
                 d = json.loads(line)
                 doc_text = d[meta_data[collection_name]['body']].replace('\r', ' ').replace('\n', ' ')
-                # doc_text = d['Clean-Text'].replace('\r', ' ').replace('\n', ' ')
-                # doc_text = d['body'].replace('\r', ' ').replace('\n', ' ')
                 passage_chunker.tokenize_document(doc_text)
                 passages = passage_chunker.chunk_document()
                 passage_splits = add_passage_ids(passages)
-                # trecweb_entry = create_trecweb_entry(
-                #     idx=d['ClueWeb22-ID'],
-                #     url=d['URL'],
-                #     title=d['URL-hash'],
-                #     body=passage_splits
-                # )
+                if collection_name == 'clueweb':
+                    title = get_page_name(d[meta_data[collection_name]['url']])
+                else:
+                    title = d[meta_data[collection_name]['title']]
                 trecweb_entry = create_trecweb_entry(
                     idx=d[meta_data[collection_name]['idx']],
                     url=d[meta_data[collection_name]['url']],
-                    title=d[meta_data[collection_name]['title']],
+                    title=title,
                     body=passage_splits
                 )
                 data.append(trecweb_entry)
